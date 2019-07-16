@@ -4,74 +4,65 @@ from time import sleep
 import sys
 import random
 import cloud4rpi
-import ds18b20
 import rpi
-import RPi.GPIO as GPIO  # pylint: disable=F0401
+import re
+import subprocess
 
 # Put your device token here. To get the token,
 # sign up at https://cloud4rpi.io and create a device.
-DEVICE_TOKEN = '__YOUR_DEVICE_TOKEN__'
+DEVICE_TOKEN = ''
+DATA_SENDING_INTERVAL = 30 # sec
+DIAG_SENDING_INTERVAL = 60 # sec
+POLL_INTERVAL = 0.5 # sec
 
-# Constants
-LED_PIN = 12
-DATA_SENDING_INTERVAL = 30  # secs
-DIAG_SENDING_INTERVAL = 60  # secs
-POLL_INTERVAL = 0.5  # 500 ms
+def network_latency():
+	try:
+		p = subprocess.Popen(["ping","-c1","8.8.8.8"], stdout = subprocess.PIPE)
+		timestr = re.compile("time=[0-9]+\.[0-9]+").findall(str(p.communicate()[0]))
+		network_latency = float(timestr[0][5:])
+	except:
+		network_latency = 0.0
+	return network_latency
 
-# Configure GPIO library
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(LED_PIN, GPIO.OUT)
+def hosts_up():
+	try:
+		p = subprocess.Popen(["nmap","-sP","172.31.53.1/24"], stdout = subprocess.PIPE)
+		timestr = re.compile("\([0-9]+ hosts up").findall(str(p.communicate()[0]))
+		hosts = int(timestr[0][1:].split(' ')[0])
+	except:
+		hosts = 0
+	return hosts
 
-
-# Handler for the button or switch variable
-def led_control(value=None):
-    GPIO.output(LED_PIN, value)
-    return GPIO.input(LED_PIN)
-
-
-def listen_for_events():
-    # Write your own logic here
-    result = random.randint(1, 5)
-    if result == 1:
-        return 'RING'
-
-    if result == 5:
-        return 'BOOM!'
-
-    return 'IDLE'
-
+def line_voltage():
+	try:
+		p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
+		timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(p.communicate()[0]))
+		volts = float(timestr[0][11:].split(' ')[0])
+	except:
+		volts = 0
+	return volts
 
 def main():
-    # Load w1 modules
-    ds18b20.init_w1()
-
-    # Detect ds18b20 temperature sensors
-    ds_sensors = ds18b20.DS18b20.find_all()
 
     # Put variable declarations here
     # Available types: 'bool', 'numeric', 'string'
     variables = {
-        'Room Temp': {
-            'type': 'numeric',
-            'bind': ds_sensors[0] if ds_sensors else None
-        },
-        # 'Outside Temp': {
-        #     'type': 'numeric',
-        #     'bind': ds_sensors[1] if len(ds_sensors) > 1 else None
-        # },
-        'LED On': {
-            'type': 'bool',
-            'value': False,
-            'bind': led_control
-        },
         'CPU Temp': {
             'type': 'numeric',
             'bind': rpi.cpu_temp
         },
-        'STATUS': {
-            'type': 'string',
-            'bind': listen_for_events
-        }
+        'Network Latency': {
+            'type': 'numeric',
+            'bind': network_latency
+        },
+        'Hosts Up': {
+            'type': 'numeric',
+            'bind': hosts_up
+        },
+        'Line Voltage': {
+            'type': 'numeric',
+            'bind': line_voltage
+        },
     }
 
     diagnostics = {
@@ -80,15 +71,11 @@ def main():
         'Host': rpi.host_name,
         'Operating System': rpi.os_name
     }
-    device = cloud4rpi.connect(DEVICE_TOKEN)
 
-    # Use the following 'device' declaration
-    # to enable the MQTT traffic encryption (TLS).
-    #
-    # tls = {
-    #     'ca_certs': '/etc/ssl/certs/ca-certificates.crt'
-    # }
-    # device = cloud4rpi.connect(DEVICE_TOKEN, tls_config=tls)
+    tls = {
+        'ca_certs': '/etc/ssl/certs/ca-certificates.crt'
+    }
+    device = cloud4rpi.connect(DEVICE_TOKEN, tls_config=tls)
 
     try:
         device.declare(variables)
