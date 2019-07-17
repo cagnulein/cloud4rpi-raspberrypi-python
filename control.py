@@ -15,6 +15,13 @@ DATA_SENDING_INTERVAL = 30 # sec
 DIAG_SENDING_INTERVAL = 60 # sec
 POLL_INTERVAL = 0.5 # sec
 
+_gsm_band = 0
+_gsm_mode = ''
+_gsm_rssi = 0
+_gsm_rsrq = 0 
+_gsm_rsrp = 0
+_gsm_signal = 0
+
 def network_latency():
 	try:
 		p = subprocess.Popen(["ping","-c1","8.8.8.8"], stdout = subprocess.PIPE)
@@ -42,6 +49,52 @@ def line_voltage():
 		volts = 0
 	return volts
 
+################################## GSM #########################################
+
+def update_gsm():
+	try:
+		p = subprocess.Popen(["python3", "router.py"], stdout = subprocess.PIPE)
+		out = p.communicate()[0]
+		timestr = re.compile("Rssi: \-[0-9]+dBm").findall(str(out))
+		_gsm_rssi = int(timestr[0][6:].split('dBm')[0])
+		timestr = re.compile("Rsrq: \-[0-9]+dBm").findall(str(out))
+		_gsm_rsrq = int(timestr[0][6:].split('dBm')[0])
+		timestr = re.compile("Rsrp: \-[0-9]+dBm").findall(str(out))
+		_gsm_rsrp = int(timestr[0][6:].split('dBm')[0])
+		timestr = re.compile("Mode:.+").findall(str(out))
+		_gsm_mode = str(timestr[0][6:])
+		timestr = re.compile("Band: [0-9]+").findall(str(out))
+		_gsm_band = int(timestr[0][6:])
+		timestr = re.compile("Signal: [0-9]").findall(str(out))
+		_gsm_signal = int(timestr[0][8:])		
+	except:
+		_gsm_band = 0
+		_gsm_mode = ''
+		_gsm_rssi = 0
+		_gsm_rsrq = 0 
+		_gsm_rsrp = 0
+		_gsm_signal = 0
+
+def gsm_band():
+    return _gsm_band
+
+def gsm_mode():
+    return _gsm_mode
+
+def gsm_rssi():
+    return _gsm_rssi
+
+def gsm_rsrq():
+    return _gsm_rsrq
+
+def gsm_rsrp():
+    return _gsm_rsrp
+
+def gsm_signal():
+    return _gsm_signal
+
+#################################################################################                
+
 def main():
 
     # Put variable declarations here
@@ -63,6 +116,30 @@ def main():
             'type': 'numeric',
             'bind': line_voltage
         },
+        'GSM Rssi': {
+            'type': 'numeric',
+            'bind': gsm_rssi
+        },
+        'GSM Rsrq': {
+            'type': 'numeric',
+            'bind': gsm_rsrq
+        },
+        'GSM Rsrp': {
+            'type': 'numeric',
+            'bind': gsm_rsrp
+        },
+        'GSM Band': {
+            'type': 'numeric',
+            'bind': gsm_band
+        },
+        'GSM Signal': {
+            'type': 'numeric',
+            'bind': gsm_signal
+        },
+        'GSM Mode': {
+            'type': 'string',
+            'bind': gsm_mode
+        },        
     }
 
     diagnostics = {
@@ -91,6 +168,7 @@ def main():
 
         while True:
             if data_timer <= 0:
+                update_gsm()
                 device.publish_data()
                 data_timer = DATA_SENDING_INTERVAL
 
