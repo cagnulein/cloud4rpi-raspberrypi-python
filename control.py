@@ -22,6 +22,13 @@ _gsm_rsrq = 0
 _gsm_rsrp = 0
 _gsm_signal = 0
 
+_loadpct = 0
+_line_voltage = 0
+_xonbatt = ""
+_xoffbatt = ""
+
+################################## NET #########################################
+
 def network_latency():
 	try:
 		p = subprocess.Popen(["ping","-c1","8.8.8.8"], stdout = subprocess.PIPE)
@@ -40,14 +47,38 @@ def hosts_up():
 		hosts = 0
 	return hosts
 
+################################## UPS #########################################
+
+def apcaccess():
+    try:
+        p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
+        out = p.communicate()[0]
+        timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(out))
+        _line_voltage = float(timestr[0][11:].split(' ')[0])
+        timestr = re.compile("LOADPCT  : [0-9]+\.[0-9]+ Percent").findall(str(p.communicate()[0]))
+        _loadpct = float(timestr[0][11:].split(' ')[0])
+        timestr = re.compile("XONBATT  : .+").findall(str(p.communicate()[0]))
+        _xonbatt = str(timestr[0][11:])        
+        timestr = re.compile("XOFFBATT : .+").findall(str(p.communicate()[0]))
+        _xoffbatt = str(timestr[0][11:])        
+    except:
+        _loadpct = 0
+        _line_voltage = 0
+        _xonbatt = ""
+        _xoffbatt = ""        
+    return volts
+
 def line_voltage():
-	try:
-		p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
-		timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(p.communicate()[0]))
-		volts = float(timestr[0][11:].split(' ')[0])
-	except:
-		volts = 0
-	return volts
+	return _line_voltage
+
+def loadpct():
+    return _loadpct
+
+def xonbatt():
+    return _xonbatt
+
+def xoffbatt():
+    return _xoffbatt
 
 ################################## GSM #########################################
 
@@ -100,10 +131,14 @@ def main():
     # Put variable declarations here
     # Available types: 'bool', 'numeric', 'string'
     variables = {
+
+        ##### RASP PI ######
         'CPU Temp': {
             'type': 'numeric',
             'bind': rpi.cpu_temp
         },
+
+        ##### NETWORK ######
         'Network Latency': {
             'type': 'numeric',
             'bind': network_latency
@@ -112,10 +147,18 @@ def main():
             'type': 'numeric',
             'bind': hosts_up
         },
+
+        ##### UPS ######
         'Line Voltage': {
             'type': 'numeric',
             'bind': line_voltage
         },
+        'LoadPCT': {
+            'type': 'numeric',
+            'bind': loadpct
+        },        
+
+        ##### 4G ROUTER ######
         'GSM Rssi': {
             'type': 'numeric',
             'bind': gsm_rssi
@@ -143,10 +186,11 @@ def main():
     }
 
     diagnostics = {
-        'CPU Temp': rpi.cpu_temp,
         'IP Address': rpi.ip_address,
         'Host': rpi.host_name,
-        'Operating System': rpi.os_name
+        'Operating System': rpi.os_name,
+        'UPS Last On Battery': xonbatt,
+        'UPS Last Off Battery': xoffbatt,
     }
 
     tls = {
@@ -169,6 +213,7 @@ def main():
         while True:
             if data_timer <= 0:
                 update_gsm()
+                apcaccess()
                 device.publish_data()
                 data_timer = DATA_SENDING_INTERVAL
 
