@@ -50,6 +50,16 @@ def network_latency():
 		network_latency = 0.0
 	return network_latency
 
+def localnet_latency():
+    try:
+        p = subprocess.Popen(["ping","-c1","192.168.0.254"], stdout = subprocess.PIPE)
+        timestr = re.compile("time=[0-9]+\.[0-9]+").findall(str(p.communicate()[0]))
+        localnet_latency = float(timestr[0][5:])
+    except:
+        print(traceback.format_exc())
+        localnet_latency = 0.0
+    return localnet_latency
+
 def hosts_up():
 	try:
 		p = subprocess.Popen(["nmap","-sP","192.168.0.1/24"], stdout = subprocess.PIPE)
@@ -175,6 +185,10 @@ def main():
             'type': 'numeric',
             'bind': network_latency
         },
+        'Localnet Latency': {
+            'type': 'numeric',
+            'bind': localnet_latency
+        },        
         'Hosts Up': {
             'type': 'numeric',
             'bind': hosts_up
