@@ -7,13 +7,22 @@ import cloud4rpi
 import rpi
 import re
 import subprocess
+import traceback
+from huawei_lte_api.Client import Client
+from huawei_lte_api.AuthorizedConnection import AuthorizedConnection
+from huawei_lte_api.Connection import Connection
+
+router_url = 'http://admin:password@192.168.0.254/'         # CHANGE ME
 
 # Put your device token here. To get the token,
 # sign up at https://cloud4rpi.io and create a device.
-DEVICE_TOKEN = ''
+DEVICE_TOKEN = ''                                           # CHANGE ME
 DATA_SENDING_INTERVAL = 30 # sec
 DIAG_SENDING_INTERVAL = 60 # sec
 POLL_INTERVAL = 0.5 # sec
+
+connection = AuthorizedConnection(router_url)
+client = Client(connection)
 
 _gsm_band = 0
 _gsm_mode = ''
@@ -40,7 +49,7 @@ def network_latency():
 
 def hosts_up():
 	try:
-		p = subprocess.Popen(["nmap","-sP","172.31.53.1/24"], stdout = subprocess.PIPE)
+		p = subprocess.Popen(["nmap","-sP","192.168.0.1/24"], stdout = subprocess.PIPE)
 		timestr = re.compile("\([0-9]+ hosts up").findall(str(p.communicate()[0]))
 		hosts = int(timestr[0][1:].split(' ')[0])
 	except:
@@ -50,23 +59,28 @@ def hosts_up():
 ################################## UPS #########################################
 
 def apcaccess():
-    try:
-        p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
-        out = p.communicate()[0]
-        timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(out))
-        _line_voltage = float(timestr[0][11:].split(' ')[0])
-        timestr = re.compile("LOADPCT  : [0-9]+\.[0-9]+ Percent").findall(str(p.communicate()[0]))
-        _loadpct = float(timestr[0][11:].split(' ')[0])
-        timestr = re.compile("XONBATT  : .+").findall(str(p.communicate()[0]))
-        _xonbatt = str(timestr[0][11:])        
-        timestr = re.compile("XOFFBATT : .+").findall(str(p.communicate()[0]))
-        _xoffbatt = str(timestr[0][11:])        
-    except:
-        _loadpct = 0
-        _line_voltage = 0
-        _xonbatt = ""
-        _xoffbatt = ""        
-    return volts
+	global _loadpct
+	global _line_voltage
+	global _xonbatt
+	global _xoffbatt
+
+	try:
+        	p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
+        	out = p.communicate()[0]
+        	timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(out))
+        	_line_voltage = float(timestr[0][11:].split(' ')[0])
+        	timestr = re.compile("LOADPCT  : [0-9]+\.[0-9]+ Percent").findall(str(out))
+        	_loadpct = float(timestr[0][11:].split(' ')[0])
+        	timestr = re.compile("XONBATT  : .+").findall(str(out))
+        	_xonbatt = str(timestr[0][11:]).split('+0000')[0]
+        	timestr = re.compile("XOFFBATT : .+").findall(str(out))
+        	_xoffbatt = str(timestr[0][11:]).split('+0000')[0]
+	except:
+		print(traceback.format_exc())
+		_loadpct = 0
+		_line_voltage = 0
+		_xonbatt = ""
+		_xoffbatt = ""        
 
 def line_voltage():
 	return _line_voltage
@@ -83,28 +97,35 @@ def xoffbatt():
 ################################## GSM #########################################
 
 def update_gsm():
+	global _gsm_band
+	global _gsm_mode
+	global _gsm_rssi
+	global _gsm_rsrq
+	global _gsm_rsrp
+	global _gsm_signal
+	global client
+	global connection
+
 	try:
-		p = subprocess.Popen(["python3", "router.py"], stdout = subprocess.PIPE)
-		out = p.communicate()[0]
-		timestr = re.compile("Rssi: \-[0-9]+dBm").findall(str(out))
-		_gsm_rssi = int(timestr[0][6:].split('dBm')[0])
-		timestr = re.compile("Rsrq: \-[0-9]+dBm").findall(str(out))
-		_gsm_rsrq = int(timestr[0][6:].split('dBm')[0])
-		timestr = re.compile("Rsrp: \-[0-9]+dBm").findall(str(out))
-		_gsm_rsrp = int(timestr[0][6:].split('dBm')[0])
-		timestr = re.compile("Mode:.+").findall(str(out))
-		_gsm_mode = str(timestr[0][6:])
-		timestr = re.compile("Band: [0-9]+").findall(str(out))
-		_gsm_band = int(timestr[0][6:])
-		timestr = re.compile("Signal: [0-9]").findall(str(out))
-		_gsm_signal = int(timestr[0][8:])		
+		signal = client.device.signal()
+		info = client.device.information()
+		status = client.monitoring.status()
+		_gsm_mode = info['workmode']
+		_gsm_band = int(signal['band'])
+		_gsm_rssi = int(signal['rssi'].split('dBm')[0])
+		_gsm_rsrq = int(signal['rsrq'].split('dB')[0])
+		_gsm_rsrp = int(signal['rsrp'].split('dBm')[0])
+		_gsm_signal = int(status['SignalIcon'])
 	except:
+		print(traceback.format_exc())
 		_gsm_band = 0
 		_gsm_mode = ''
 		_gsm_rssi = 0
 		_gsm_rsrq = 0 
 		_gsm_rsrp = 0
 		_gsm_signal = 0
+		connection = AuthorizedConnection(router_url)
+		client = Client(connection)
 
 def gsm_band():
     return _gsm_band
@@ -124,7 +145,7 @@ def gsm_rsrp():
 def gsm_signal():
     return _gsm_signal
 
-#################################################################################                
+#################################################################################
 
 def main():
 
