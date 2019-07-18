@@ -46,6 +46,7 @@ def network_latency():
 		timestr = re.compile("time=[0-9]+\.[0-9]+").findall(str(p.communicate()[0]))
 		network_latency = float(timestr[0][5:])
 	except:
+        print(traceback.format_exc())
 		network_latency = 0.0
 	return network_latency
 
@@ -55,6 +56,7 @@ def hosts_up():
 		timestr = re.compile("\([0-9]+ hosts up").findall(str(p.communicate()[0]))
 		hosts = int(timestr[0][1:].split(' ')[0])
 	except:
+        print(traceback.format_exc())
 		hosts = 0
 	return hosts
 
