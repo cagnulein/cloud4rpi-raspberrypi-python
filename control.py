@@ -8,15 +8,27 @@ import rpi
 import re
 import subprocess
 import traceback
+
+############################### GSM ###########################################
 from huawei_lte_api.Client import Client
 from huawei_lte_api.AuthorizedConnection import AuthorizedConnection
 from huawei_lte_api.Connection import Connection
+router_url = 'http://admin:ROUTER_PASSWORD_HERE@192.168.0.254/'         # CHANGE ME
 
-router_url = 'http://admin:password@192.168.0.254/'         # CHANGE ME
+############################### ARLO ##########################################
+import arlo # pip install arlo
+ARLO_USERNAME = 'ARLO_USERNAME_HERE'
+ARLO_PASSWORD = 'ARLO_PASSWORD_HERE'
+
+try:
+    arlo = arlo.Arlo(ARLO_USERNAME, ARLO_PASSWORD)
+    arlo_basestation = arlo.GetDevices('basestation')
+except Exception as e:
+    print(e)
 
 # Put your device token here. To get the token,
 # sign up at https://cloud4rpi.io and create a device.
-DEVICE_TOKEN = ''                                           # CHANGE ME
+DEVICE_TOKEN = 'DEVICE_TOKEN_HERE'                                           # CHANGE ME
 DATA_SENDING_INTERVAL = 30 # sec
 DIAG_SENDING_INTERVAL = 60 # sec
 POLL_INTERVAL = 0.5 # sec
@@ -41,14 +53,14 @@ _lastxfer = ""
 ################################## NET #########################################
 
 def network_latency():
-	try:
-		p = subprocess.Popen(["ping","-c1","8.8.8.8"], stdout = subprocess.PIPE)
-		timestr = re.compile("time=[0-9]+\.[0-9]+").findall(str(p.communicate()[0]))
-		network_latency = float(timestr[0][5:])
-	except:
+    try:
+        p = subprocess.Popen(["ping","-c1","8.8.8.8"], stdout = subprocess.PIPE)
+        timestr = re.compile("time=[0-9]+\.[0-9]+").findall(str(p.communicate()[0]))
+        network_latency = float(timestr[0][5:])
+    except:
         print(traceback.format_exc())
-		network_latency = 0.0
-	return network_latency
+        network_latency = 0.0
+    return network_latency
 
 def localnet_latency():
     try:
@@ -66,7 +78,7 @@ def hosts_up():
 		timestr = re.compile("\([0-9]+ hosts up").findall(str(p.communicate()[0]))
 		hosts = int(timestr[0][1:].split(' ')[0])
 	except:
-        print(traceback.format_exc())
+		print(traceback.format_exc())
 		hosts = 0
 	return hosts
 
@@ -77,28 +89,28 @@ def apcaccess():
 	global _line_voltage
 	global _xonbatt
 	global _xoffbatt
-    global _lastxfer
+	global _lastxfer
 
 	try:
-        	p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
-        	out = p.communicate()[0]
-        	timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(out))
-        	_line_voltage = float(timestr[0][11:].split(' ')[0])
-        	timestr = re.compile("LOADPCT  : [0-9]+\.[0-9]+ Percent").findall(str(out))
-        	_loadpct = float(timestr[0][11:].split(' ')[0])
-        	timestr = re.compile("XONBATT  : .+").findall(str(out))
-        	_xonbatt = str(timestr[0][11:]).split('+0000')[0]
-        	timestr = re.compile("XOFFBATT : .+").findall(str(out))
-        	_xoffbatt = str(timestr[0][11:]).split('+0000')[0]
-            timestr = re.compile("LASTXFER : .+").findall(str(out))
-            _lastxfer = str(timestr[0][11:]).split('+0000')[0]            
+		p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
+		out = p.communicate()[0]
+		timestr = re.compile("LINEV    : [0-9]+\.[0-9]+ Volts").findall(str(out))
+		_line_voltage = float(timestr[0][11:].split(' ')[0])
+		timestr = re.compile("LOADPCT  : [0-9]+\.[0-9]+ Percent").findall(str(out))
+		_loadpct = float(timestr[0][11:].split(' ')[0])
+		timestr = re.compile("XONBATT  : .+").findall(str(out))
+		_xonbatt = str(timestr[0][11:]).split('+0000')[0]
+		timestr = re.compile("XOFFBATT : .+").findall(str(out))
+		_xoffbatt = str(timestr[0][11:]).split('+0000')[0]
+		timestr = re.compile("LASTXFER : .+").findall(str(out))
+		_lastxfer = str(timestr[0][11:]).split('+0000')[0]            
 	except:
 		print(traceback.format_exc())
 		_loadpct = 0
 		_line_voltage = 0
 		_xonbatt = ""
 		_xoffbatt = ""
-        _lastxfer = ""     
+		_lastxfer = ""     
 
 def line_voltage():
 	return _line_voltage
@@ -126,7 +138,7 @@ def update_gsm():
 	global _gsm_signal
 	global client
 	global connection
-    global _gsm_reading_status
+	global _gsm_reading_status
 
 	try:
 		signal = client.device.signal()
@@ -138,10 +150,10 @@ def update_gsm():
 		_gsm_rsrq = int(signal['rsrq'].split('dB')[0])
 		_gsm_rsrp = int(signal['rsrp'].split('dBm')[0])
 		_gsm_signal = int(status['SignalIcon'])
-        _gsm_reading_status = 'OK'
+		_gsm_reading_status = 'OK'
 	except:
 		print(traceback.format_exc())
-        _gsm_reading_status = 'KO'
+		_gsm_reading_status = 'KO'
 		connection = AuthorizedConnection(router_url)
 		client = Client(connection)
 
@@ -165,6 +177,56 @@ def gsm_signal():
 
 def gsm_status():
     return _gsm_reading_status
+
+#################################### ARLO #######################################
+def arlo_updatecamerasstate():
+    global arlo_basestation
+    global arlo    
+    global arlo_cameras
+    try:
+        arlo_cameras = arlo.GetCameraState(arlo_basestation[0])
+    except Exception as e:
+        print(e)
+
+def arlo_basestationstatus():
+    global arlo_basestation
+    global arlo
+    try:
+        base = arlo.GetBaseStationState(arlo_basestation[0])
+        return base['properties']['connectivity'][0]['connected']
+    except Exception as e:
+        print(e)
+        return 0
+
+def arlo_camera_0_connectionstate():
+    global arlo_cameras
+    if(arlo_cameras['properties'][0]['connectionState'] == 'available'):
+        return True
+    else:
+        return False
+
+def arlo_camera_0_batterylevel():
+    global arlo_cameras
+    return arlo_cameras['properties'][0]['batteryLevel']
+
+def arlo_camera_0_signalstrength():
+    global arlo_cameras
+    return arlo_cameras['properties'][0]['signalStrength']
+
+def arlo_camera_1_connectionstate():
+    global arlo_cameras
+    if(arlo_cameras['properties'][1]['connectionState'] == 'available'):
+        return True
+    else:
+        return False
+
+def arlo_camera_1_batterylevel():
+    global arlo_cameras
+    return arlo_cameras['properties'][1]['batteryLevel']
+
+def arlo_camera_1_signalstrength():
+    global arlo_cameras
+    return arlo_cameras['properties'][1]['signalStrength']
 
 #################################################################################
 
@@ -244,6 +306,38 @@ def main():
         'GSM Status': {
             'type': 'string',
             'bind': gsm_status
+        },
+
+        ####### ARLO ########
+        'Arlo Base Station Status': {
+            'type': 'bool',
+            'bind': arlo_basestationstatus
+        },
+
+        'Arlo Camera 0 Status': {
+            'type': 'bool',
+            'bind': arlo_camera_0_connectionstate
+        },
+        'Arlo Camera 0 Battery Level': {
+            'type': 'numeric',
+            'bind': arlo_camera_0_batterylevel
+        },
+        'Arlo Camera 0 Signal Strength': {
+            'type': 'numeric',
+            'bind': arlo_camera_0_signalstrength
+        },
+
+        'Arlo Camera 1 Status': {
+            'type': 'bool',
+            'bind': arlo_camera_1_connectionstate
+        },
+        'Arlo Camera 1 Battery Level': {
+            'type': 'numeric',
+            'bind': arlo_camera_1_batterylevel
+        },
+        'Arlo Camera 1 Signal Strength': {
+            'type': 'numeric',
+            'bind': arlo_camera_1_signalstrength
         },        
     }
 
@@ -274,6 +368,7 @@ def main():
             if data_timer <= 0:
                 update_gsm()
                 apcaccess()
+                arlo_updatecamerasstate()
                 device.publish_data()
                 data_timer = DATA_SENDING_INTERVAL
 
