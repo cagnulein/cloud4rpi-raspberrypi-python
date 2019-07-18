@@ -5,8 +5,6 @@ Cloud4RPi Examples for [Raspberry Pi](https://www.raspberrypi.org/products/)
 
 This example demonstrates different scenarios of using Cloud4RPi service on Raspberry Pi:
  - Monitoring events
- - Controling a GPIO pin
- - Monitoring temperature with the DS18B20 sensor
 
 For detailed instructions on how to run this example, refer to the [How To](https://cloud4rpi.github.io/docs/howto/rpi) article.
 
@@ -39,13 +37,10 @@ For detailed instructions on how to run this example, refer to the [How To](http
 8. Notice that the [device](https://cloud4rpi.io/devices) went online and started sending data.
 9. Go to the [Control Panels](https://cloud4rpi.io/control-panels/) page and add a new control panel.
 10. Add a new **Gauge** widget and bind it to the `CPU Temp` variable.
-10. Add a new **Switch** widget and bind it to the `LED On` variable.
-11. Add a new **Text** widget and bind it to the `STATUS` variable. Configure different colors for **"IDLE"**, **"RING"** and **"BOOM!"** strings.
-12. If you have [DS18B20 sensor connected](http://docs.cloud4rpi.io/howto/rpi/#connect-ds18b20-temperature-sensor) to your Raspberry Pi, add a new **Chart** widget and bind it to the `Room Temp` variable.
 
 You can use this control panel to monitor variables and control a logical state on a hardware pin.
 
-![](https://github.com/cloud4rpi/docs/raw/master/example-img/panel.png)
+![](example.png)
 
 ## See Also
 
