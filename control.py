@@ -30,11 +30,13 @@ _gsm_rssi = 0
 _gsm_rsrq = 0 
 _gsm_rsrp = 0
 _gsm_signal = 0
+_gsm_reading_status = 'KO'
 
 _loadpct = 0
 _line_voltage = 0
 _xonbatt = ""
 _xoffbatt = ""
+_lastxfer = ""
 
 ################################## NET #########################################
 
@@ -63,6 +65,7 @@ def apcaccess():
 	global _line_voltage
 	global _xonbatt
 	global _xoffbatt
+    global _lastxfer
 
 	try:
         	p = subprocess.Popen(["apcaccess"], stdout = subprocess.PIPE)
@@ -75,12 +78,15 @@ def apcaccess():
         	_xonbatt = str(timestr[0][11:]).split('+0000')[0]
         	timestr = re.compile("XOFFBATT : .+").findall(str(out))
         	_xoffbatt = str(timestr[0][11:]).split('+0000')[0]
+            timestr = re.compile("LASTXFER : .+").findall(str(out))
+            _lastxfer = str(timestr[0][11:]).split('+0000')[0]            
 	except:
 		print(traceback.format_exc())
 		_loadpct = 0
 		_line_voltage = 0
 		_xonbatt = ""
-		_xoffbatt = ""        
+		_xoffbatt = ""
+        _lastxfer = ""     
 
 def line_voltage():
 	return _line_voltage
@@ -94,6 +100,9 @@ def xonbatt():
 def xoffbatt():
     return _xoffbatt
 
+def lastxfer():
+    return _lastxfer
+
 ################################## GSM #########################################
 
 def update_gsm():
@@ -105,6 +114,7 @@ def update_gsm():
 	global _gsm_signal
 	global client
 	global connection
+    global _gsm_reading_status
 
 	try:
 		signal = client.device.signal()
@@ -116,14 +126,10 @@ def update_gsm():
 		_gsm_rsrq = int(signal['rsrq'].split('dB')[0])
 		_gsm_rsrp = int(signal['rsrp'].split('dBm')[0])
 		_gsm_signal = int(status['SignalIcon'])
+        _gsm_reading_status = 'OK'
 	except:
 		print(traceback.format_exc())
-		_gsm_band = 0
-		_gsm_mode = ''
-		_gsm_rssi = 0
-		_gsm_rsrq = 0 
-		_gsm_rsrp = 0
-		_gsm_signal = 0
+        _gsm_reading_status = 'KO'
 		connection = AuthorizedConnection(router_url)
 		client = Client(connection)
 
@@ -144,6 +150,9 @@ def gsm_rsrp():
 
 def gsm_signal():
     return _gsm_signal
+
+def gsm_status():
+    return _gsm_reading_status
 
 #################################################################################
 
@@ -178,6 +187,18 @@ def main():
             'type': 'numeric',
             'bind': loadpct
         },        
+        'UPS Last On Battery': {
+            'type': 'string',
+            'bind': xonbatt
+        },        
+        'UPS Last Off Battery': {
+            'type': 'string',
+            'bind': xoffbatt
+        },
+        'UPS Last Transfer': {
+            'type': 'string',
+            'bind': lastxfer
+        },
 
         ##### 4G ROUTER ######
         'GSM Rssi': {
@@ -203,6 +224,10 @@ def main():
         'GSM Mode': {
             'type': 'string',
             'bind': gsm_mode
+        },
+        'GSM Status': {
+            'type': 'string',
+            'bind': gsm_status
         },        
     }
 
@@ -210,8 +235,6 @@ def main():
         'IP Address': rpi.ip_address,
         'Host': rpi.host_name,
         'Operating System': rpi.os_name,
-        'UPS Last On Battery': xonbatt,
-        'UPS Last Off Battery': xoffbatt,
     }
 
     tls = {
