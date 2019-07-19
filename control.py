@@ -29,7 +29,7 @@ except Exception as e:
 # Put your device token here. To get the token,
 # sign up at https://cloud4rpi.io and create a device.
 DEVICE_TOKEN = 'DEVICE_TOKEN_HERE'                                           # CHANGE ME
-DATA_SENDING_INTERVAL = 30 # sec
+DATA_SENDING_INTERVAL = 60 # sec
 DIAG_SENDING_INTERVAL = 60 # sec
 POLL_INTERVAL = 0.5 # sec
 
@@ -103,7 +103,7 @@ def apcaccess():
 		timestr = re.compile("XOFFBATT : .+").findall(str(out))
 		_xoffbatt = str(timestr[0][11:]).split('+0000')[0]
 		timestr = re.compile("LASTXFER : .+").findall(str(out))
-		_lastxfer = str(timestr[0][11:]).split('+0000')[0]            
+		_lastxfer = str(timestr[0][11:]).split('\\n')[0]            
 	except:
 		print(traceback.format_exc())
 		_loadpct = 0
