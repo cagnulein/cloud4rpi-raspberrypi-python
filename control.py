@@ -20,6 +20,8 @@ import arlo # pip install arlo
 ARLO_USERNAME = 'ARLO_USERNAME_HERE'
 ARLO_PASSWORD = 'ARLO_PASSWORD_HERE'
 
+import pywemo # https://github.com/pavoni/pywemo
+
 try:
     arlo = arlo.Arlo(ARLO_USERNAME, ARLO_PASSWORD)
     arlo_basestation = arlo.GetDevices('basestation')
@@ -29,8 +31,8 @@ except Exception as e:
 # Put your device token here. To get the token,
 # sign up at https://cloud4rpi.io and create a device.
 DEVICE_TOKEN = 'DEVICE_TOKEN_HERE'                                           # CHANGE ME
-DATA_SENDING_INTERVAL = 60 # sec
-DIAG_SENDING_INTERVAL = 60 # sec
+DATA_SENDING_INTERVAL = 600 # sec
+DIAG_SENDING_INTERVAL = 600 # sec
 POLL_INTERVAL = 0.5 # sec
 
 connection = AuthorizedConnection(router_url)
@@ -49,6 +51,8 @@ _line_voltage = 0
 _xonbatt = ""
 _xoffbatt = ""
 _lastxfer = ""
+
+wemo_devices = None
 
 ################################## NET #########################################
 
@@ -126,6 +130,20 @@ def xoffbatt():
 
 def lastxfer():
     return _lastxfer
+	
+################################## WEMO #########################################
+
+def update_wemo():
+	global wemo_devices
+	wemo_devices = pywemo.discover_devices()
+	
+def wemo_online():
+	global wemo_devices
+	return len(wemo_devices)
+	
+def wemo_status():
+	global wemo_devices
+	return wemo_devices[0].get_state()
 
 ################################## GSM #########################################
 
@@ -256,12 +274,22 @@ def main():
             'bind': hosts_up
         },
 
+		##### WEMO ######
+        'WEMO Online': {
+            'type': 'numeric',
+            'bind': wemo_online
+        },
+        'UPS State': {
+            'type': 'bool',
+            'bind': wemo_status
+        },		
+
         ##### UPS ######
-        'Line Voltage': {
+        'UPS Line Voltage': {
             'type': 'numeric',
             'bind': line_voltage
         },
-        'LoadPCT': {
+        'UPS LoadPCT': {
             'type': 'numeric',
             'bind': loadpct
         },        
@@ -369,6 +397,7 @@ def main():
                 update_gsm()
                 apcaccess()
                 arlo_updatecamerasstate()
+				update_wemo()
                 device.publish_data()
                 data_timer = DATA_SENDING_INTERVAL
 
